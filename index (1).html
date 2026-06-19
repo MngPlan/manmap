@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel de Preventivas — 21 Dias Úteis</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0f1923;color:#e0e8f0;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+#topbar{background:linear-gradient(90deg,#1a2942,#1e3a5f);padding:0 16px;height:50px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #2d4a7a;flex-shrink:0}
+#topbar h1{font-size:14px;font-weight:700;color:#7eb8f7;white-space:nowrap}
+#topbar .sub{font-size:10px;color:#6a8ab0}
+.kpis{display:flex;gap:8px;margin-left:auto}
+.kpi{background:#162035;border:1px solid #2a4060;border-radius:5px;padding:3px 10px;text-align:center}
+.kpi .kv{font-size:16px;font-weight:700;color:#7eb8f7;line-height:1.1}
+.kpi .kl{font-size:9px;color:#506880;text-transform:uppercase}
+#tabs{display:flex;background:#111d2e;border-bottom:1px solid #1e3050;flex-shrink:0}
+.tab{padding:9px 20px;cursor:pointer;font-size:12px;font-weight:600;color:#5a7ba0;border-bottom:3px solid transparent;transition:all .15s;user-select:none}
+.tab:hover{color:#90c0f0;background:#15253a}
+.tab.active{color:#7eb8f7;border-bottom-color:#3d7abf;background:#142035}
+#content{flex:1;overflow:hidden;position:relative;min-height:0}
+.panel{position:absolute;inset:0;display:none;flex-direction:column}
+.panel.active{display:flex}
+/* MAP */
+#map-outer{flex:1;display:flex;min-height:0;overflow:hidden}
+#map-container{flex:1;position:relative;overflow:hidden;background:#1a2a3a;cursor:grab}
+#map-container.dragging{cursor:grabbing}
+#tile-layer{position:absolute;top:0;left:0;will-change:transform}
+#svg-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+#svg-overlay .clickable{pointer-events:all;cursor:pointer}
+#map-sidebar{width:280px;background:#0e1a2a;border-left:1px solid #1e3050;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#map-ctrls{background:#111d2e;padding:7px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid #1e3050}
+#map-legend{position:absolute;bottom:10px;left:8px;z-index:20;background:rgba(10,18,32,.92);border:1px solid #2a4060;border-radius:6px;padding:7px 10px;font-size:10px;line-height:1.9;pointer-events:none}
+.li{display:flex;align-items:center;gap:5px;color:#90b0c8}
+.ld{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.4)}
+#map-zoom{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:2px;z-index:20}
+.zb{width:28px;height:28px;background:#1a2942;border:1px solid #2a4a7a;color:#7eb8f7;border-radius:4px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;transition:background .15s}
+.zb:hover{background:#243a5a}
+#map-tip{position:absolute;pointer-events:none;background:rgba(8,16,28,.96);border:1px solid #2a5080;border-radius:6px;padding:8px 11px;font-size:11px;line-height:1.6;display:none;z-index:30;max-width:250px;box-shadow:0 4px 20px rgba(0,0,0,.7)}
+#map-tip .tt{font-weight:700;color:#7eb8f7;margin-bottom:3px}
+#tile-info{position:absolute;bottom:8px;right:8px;font-size:9px;color:#304050;z-index:20;background:rgba(0,0,0,.4);padding:2px 5px;border-radius:3px}
+/* SIDEBAR */
+#sb-search-wrap{padding:7px 10px;background:#111d2e;border-bottom:1px solid #1e3050;flex-shrink:0}
+.sinput{background:#162035;border:1px solid #2a4060;color:#cde;border-radius:4px;padding:4px 7px;font-size:11px;outline:none;width:100%}
+.sinput::placeholder{color:#3a5070}
+#sb-title{padding:6px 10px;font-size:11px;color:#7eb8f7;border-bottom:1px solid #1e3050;background:#111d2e;flex-shrink:0}
+#route-list{flex:1;overflow-y:auto;padding:3px}
+.ri{padding:6px 9px;border-radius:4px;cursor:pointer;border:1px solid transparent;margin-bottom:2px;transition:all .15s}
+.ri:hover{background:#162035;border-color:#2a4060}
+.ri.sel{background:#1a3050;border-color:#3d7abf}
+.ri .rn{font-size:11px;font-weight:700;color:#7eb8f7}
+.ri .rd{font-size:10px;color:#506880;margin-top:1px}
+.ri .rb{display:inline-block;border-radius:3px;padding:1px 5px;font-size:10px;margin-top:2px}
+/* SHARED */
+select{background:#162035;border:1px solid #2a4060;color:#cde;border-radius:4px;padding:3px 6px;font-size:11px;outline:none}
+.lbl{font-size:11px;color:#7a9bc0;font-weight:600;white-space:nowrap}
+.btn{background:#1f4070;border:1px solid #3060a0;color:#8ec8ff;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;transition:background .15s;white-space:nowrap}
+.btn:hover{background:#2a5595}
+.btn.ok{background:#1a4a2a;border-color:#2a7040;color:#80e0a0}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#0a1220}
+::-webkit-scrollbar-thumb{background:#2a4060;border-radius:2px}
+/* SCHEDULE */
+#sched-cont{flex:1;overflow:auto;padding:10px}
+#st{border-collapse:collapse;font-size:11px;min-width:max-content}
+#st th{background:#1a2942;color:#7eb8f7;padding:5px 7px;border:1px solid #1e3050;white-space:nowrap;position:sticky;top:0;z-index:5;font-weight:600}
+#st th.vth{writing-mode:vertical-rl;transform:rotate(180deg);padding:5px 3px;font-size:9px;min-width:28px}
+#st td{padding:3px 5px;border:1px solid #0d1928;text-align:center;font-size:10px;cursor:pointer}
+#st td:first-child{text-align:left;min-width:170px;font-weight:600;color:#90b0c8;position:sticky;left:0;background:#0f1923;z-index:3}
+#st td:nth-child(2){min-width:28px;position:sticky;left:171px;background:#0f1923;z-index:3;font-weight:700}
+#st tr:hover td{background:#11223a!important}
+.c0{background:#0a1420;color:#1a3050}.c1{background:#0b2515;color:#3a9050}
+.c2{background:#252510;color:#a09030}.c3{background:#281508;color:#b05020}
+.c4{background:#321010;color:#d04040}.tot{background:#1a2942!important;color:#7eb8f7;font-weight:700}
+.trow td{background:#111d2e!important;color:#7eb8f7;font-weight:700}
+.wsep{border-right:2px solid #3d6090!important}
+/* CLIENTS */
+#cli-cont{flex:1;overflow:auto}
+#ct{border-collapse:collapse;width:100%;font-size:11px}
+#ct th{background:#1a2942;color:#7eb8f7;padding:6px 9px;border-bottom:1px solid #1e3050;text-align:left;position:sticky;top:0;z-index:5;font-weight:600;white-space:nowrap;cursor:pointer}
+#ct th:hover{background:#1e3050}
+#ct td{padding:4px 9px;border-bottom:1px solid #0e1928;color:#a0bcd0;vertical-align:middle}
+#ct tr:hover td{background:#111d2e}
+.ub{display:inline-block;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700}
+.dnear{color:#50d080;font-size:10px}.dfar{color:#f0a040;font-size:10px}.dvfar{color:#f05050;font-size:10px}
+.esel{background:#162035;border:1px solid #2a6080;color:#cde;border-radius:3px;padding:2px 4px;font-size:10px;width:100%}
+.wbadge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.w1{background:#1a3060;color:#7eb8f7}.w2{background:#1a4020;color:#50c070}
+.w3{background:#3a3010;color:#c0b030}.w4{background:#3a1a10;color:#d07030}.w5{background:#2a1030;color:#b070e0}
+/* REPORT */
+#rep-cont{flex:1;overflow:auto;padding:10px;display:flex;gap:10px;flex-wrap:wrap;align-content:flex-start}
+.rc{background:#0e1a2a;border:1px solid #1e3050;border-radius:7px;padding:11px;min-width:230px;flex:1;max-width:300px}
+.rc h4{font-size:11px;margin-bottom:7px;border-bottom:1px solid #1e3050;padding-bottom:4px}
+.rs{display:flex;justify-content:space-between;padding:2px 0;font-size:10px;color:#8ab0c8;border-bottom:1px solid #0d1520}
+.rs .sv{font-weight:700;color:#b0d0f0}
+.bw{height:4px;background:#0d1520;border-radius:2px;margin-top:3px;overflow:hidden}
+.bf{height:100%;border-radius:2px}
+/* MODAL */
+#ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center}
+#ov.show{display:flex}
+#mb{background:#0e1a2a;border:1px solid #2a5080;border-radius:9px;padding:18px;width:440px;max-height:78vh;overflow-y:auto}
+#mb h3{color:#7eb8f7;margin-bottom:12px;font-size:13px}
+.mrow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #0d1a2a;font-size:11px}
+.ml{color:#7a9bc0}.mr{color:#cde;font-weight:600;text-align:right;flex:1;margin-left:10px}
+#toast{position:fixed;bottom:16px;right:16px;background:#1a3a1a;border:1px solid #2a7040;color:#80e0a0;padding:8px 16px;border-radius:7px;font-size:11px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div>
+    <h1>&#128506; PAINEL DE PREVENTIVAS &#8212; ROTEIRIZA&#199;&#195;O POR PROXIMIDADE</h1>
+    <div class="sub">15/06/2026 &#8594; 13/07/2026 &nbsp;|&nbsp; 21 Dias &#218;teis &nbsp;|&nbsp; Dist&#226;ncia Haversine por CEP</div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="kv" id="k1">&#8212;</div><div class="kl">Clientes</div></div>
+    <div class="kpi"><div class="kv" id="k2">&#8212;</div><div class="kl">T&#233;cnicos</div></div>
+    <div class="kpi"><div class="kv" id="k3">&#8212;</div><div class="kl">Programadas</div></div>
+    <div class="kpi"><div class="kv" id="k4">&#8212;</div><div class="kl">Km M&#233;dio</div></div>
+    <div class="kpi"><div class="kv" id="k5">&#8212;</div><div class="kl">Visitas/Dia</div></div>
+  </div>
+</div>
+
+<div id="tabs">
+  <div class="tab active" onclick="showP('map')">&#128506; Mapa de Rotas</div>
+  <div class="tab" onclick="showP('sched')">&#128197; Cronograma 21 Dias</div>
+  <div class="tab" onclick="showP('cli')">&#127970; Clientes</div>
+  <div class="tab" onclick="showP('rep')">&#128202; Relat&#243;rio por T&#233;cnico</div>
+  <div class="tab" onclick="showP('tec')">&#128100; T&#233;cnicos</div>
+</div>
+
+<div id="content">
+
+<!-- MAP PANEL -->
+<div id="panel-map" class="panel active">
+  <div id="map-ctrls">
+    <span class="lbl">UF:</span>
+    <select id="muf" onchange="applyMF()"><option value="">Todos</option></select>
+    <span class="lbl">Dia:</span>
+    <select id="mdia" onchange="applyMF()"><option value="-1">Todos</option></select>
+    <button class="btn" onclick="resetMF()">&#8634; Reset</button>
+    <span class="lbl" style="margin-left:8px">Tiles:</span>
+    <select id="tsrc" onchange="changeTiles()">
+      <option value="carto-dark" selected>Carto Dark</option>
+      <option value="osm">OpenStreetMap</option>
+      <option value="carto-light">Carto Light</option>
+      <option value="none">Offline (sem tiles)</option>
+    </select>
+    <button class="btn ok" onclick="exportCSV()" style="margin-left:auto">&#11015; CSV</button>
+  </div>
+  <div id="map-outer">
+    <div id="map-container">
+      <div id="tile-layer"></div>
+      <svg id="svg-overlay"><g id="g-lines"></g><g id="g-markers"></g></svg>
+      <div id="map-zoom"><button class="zb" onclick="zoom(1)">+</button><button class="zb" onclick="zoom(-1)">&#8722;</button></div>
+      <div id="map-legend">
+        <div style="font-size:10px;font-weight:700;color:#7eb8f7;margin-bottom:4px">LEGENDA</div>
+        <div class="li"><div class="ld" style="background:#3d9be9;border-color:#fff"></div>T&#233;cnico</div>
+        <div class="li"><div class="ld" style="background:#f0a030;border-color:transparent;width:8px;height:8px"></div>Cliente</div>
+        <div class="li"><div class="ld" style="background:#e05050;border-color:transparent;width:8px;height:8px"></div>Sem cobertura</div>
+        <div class="li"><div style="width:20px;height:1.5px;background:rgba(100,180,255,.6)"></div>Rota</div>
+      </div>
+      <div id="map-tip"></div>
+      <div id="tile-info">&#169; OpenStreetMap contributors &#169; CARTO</div>
+    </div>
+    <div id="map-sidebar">
+      <div id="sb-search-wrap">
+        <input class="sinput" id="ss2" placeholder="Pesquisar t&#233;cnico..." oninput="buildSide()">
+      </div>
+      <div id="sb-title">&#128374; T&#233;cnicos &#8212; clique para ver rotas</div>
+      <div id="route-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE -->
+<div id="panel-sched" class="panel">
+  <div style="background:#111d2e;padding:7px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid #1e3050">
+    <span class="lbl">T&#233;cnico:</span>
+    <input class="sinput" id="ss" style="width:160px" placeholder="Pesquisar..." oninput="buildSched()">
+    <span class="lbl">UF:</span>
+    <select id="suf" onchange="buildSched()"><option value="">Todos</option></select>
+    <span class="lbl">Semana:</span>
+    <button class="btn" onclick="setW(0)">S1</button>
+    <button class="btn" onclick="setW(1)">S2</button>
+    <button class="btn" onclick="setW(2)">S3</button>
+    <button class="btn" onclick="setW(3)">S4</button>
+    <button class="btn" onclick="setW(4)">S5</button>
+    <button class="btn" onclick="setW(-1)">Todas</button>
+  </div>
+  <div id="sched-cont"><table id="st"><thead id="sth"></thead><tbody id="stb"></tbody></table></div>
+</div>
+
+<!-- CLIENTS -->
+<div id="panel-cli" class="panel">
+  <div style="background:#111d2e;padding:7px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid #1e3050">
+    <span class="lbl">Buscar:</span>
+    <input class="sinput" id="cs" style="width:160px" placeholder="Cliente, unidade..." oninput="filterCli()">
+    <span class="lbl">UF:</span><select id="cuf" onchange="filterCli()"><option value="">Todas</option></select>
+    <span class="lbl">T&#233;cnico:</span><select id="ctec" onchange="filterCli()"><option value="">Todos</option></select>
+    <span class="lbl">Semana:</span><select id="csem" onchange="filterCli()"><option value="">Todas</option></select>
+    <span class="lbl">Dia:</span><select id="cdia" onchange="filterCli()"><option value="-1">Todos</option></select>
+    <button class="btn" onclick="resetCF()">&#8634;</button>
+    <span id="ccnt" style="font-size:11px;color:#4a7aa0;margin-left:auto"></span>
+  </div>
+  <div id="bulk-bar" style="display:none;background:#1a3050;padding:6px 14px;border-bottom:1px solid #2a5080;align-items:center;gap:10px;flex-wrap:wrap">
+    <span id="bulk-cnt" style="font-size:11px;color:#7eb8f7;font-weight:700"></span>
+    <span class="lbl">Realocar para:</span>
+    <select id="bulk-tec" style="background:#162035;border:1px solid #2a4060;color:#cde;border-radius:4px;padding:3px 6px;font-size:11px"><option value="">— Escolha t&#233;cnico —</option></select>
+    <select id="bulk-dia" style="background:#162035;border:1px solid #2a4060;color:#cde;border-radius:4px;padding:3px 6px;font-size:11px"><option value="-1">— Manter dia atual —</option></select>
+    <button class="btn ok" onclick="bulkReassign()">&#10003; Aplicar</button>
+    <button class="btn" onclick="clearSel()" style="background:#2a1010;border-color:#5a2020;color:#f08080">&#10007; Limpar</button>
+  </div>
+  <div id="cli-cont"><table id="ct">
+    <thead><tr>
+      <th style="width:30px"><input type="checkbox" id="selAll" onchange="togAll(this.checked)" style="cursor:pointer" title="Selecionar todos"></th>
+      <th onclick="sC('nome')">Cliente &#8597;</th><th onclick="sC('unidade')">Unidade &#8597;</th>
+      <th onclick="sC('uf')">UF &#8597;</th><th onclick="sC('dist_km')">Dist &#8597;</th>
+      <th>T&#233;cnico</th><th onclick="sC('dia_num')">Dia &#8597;</th>
+      <th onclick="sC('semana')">Semana &#8597;</th><th>A&#231;&#245;es</th>
+    </tr></thead>
+    <tbody id="ctb"></tbody>
+  </table></div>
+</div>
+
+<!-- REPORT -->
+<div id="panel-rep" class="panel">
+  <div style="background:#111d2e;padding:7px 12px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #1e3050;flex-shrink:0;flex-wrap:wrap">
+    <span class="lbl">Buscar:</span>
+    <input class="sinput" id="rs" style="width:180px" placeholder="Nome do t&#233;cnico..." oninput="buildRep()">
+    <span class="lbl">UF:</span><select id="ruf" onchange="buildRep()"><option value="">Todas</option></select>
+    <span class="lbl">Ordenar:</span>
+    <select id="rsort" onchange="buildRep()">
+      <option value="total">Total visitas</option>
+      <option value="dist">Dist. m&#233;dia</option>
+      <option value="nome">Nome</option>
+    </select>
+    <button class="btn" onclick="document.getElementById('rs').value='';document.getElementById('ruf').value='';buildRep()">&#8634; Reset</button>
+    <span id="rcnt" style="font-size:11px;color:#4a7aa0;margin-left:auto"></span>
+  </div>
+  <div id="rep-cont"></div>
+</div>
+
+</div>
+
+
+<!-- TÉCNICOS ADMIN -->
+<div id="panel-tec" class="panel">
+  <div style="flex:1;display:flex;min-height:0;overflow:hidden">
+    <!-- LEFT: list -->
+    <div style="width:320px;background:#0e1a2a;border-right:1px solid #1e3050;display:flex;flex-direction:column;flex-shrink:0">
+      <div style="padding:8px 10px;background:#111d2e;border-bottom:1px solid #1e3050;display:flex;gap:6px;align-items:center;flex-shrink:0">
+        <input class="sinput" id="tss" style="flex:1" placeholder="Buscar t&#233;cnico..." oninput="buildTecList()">
+        <button class="btn ok" onclick="openAddTec()" style="white-space:nowrap;font-size:11px">+ Novo</button>
+      </div>
+      <div style="padding:5px 10px;background:#0f1923;border-bottom:1px solid #1e3050;display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span id="tec-list-cnt" style="font-size:10px;color:#4a7090"></span>
+        <select id="tec-uf-f" style="background:#0e1a2a;border:1px solid #1e3050;color:#6090a0;font-size:10px;border-radius:3px;padding:1px 4px;margin-left:auto" onchange="buildTecList()"><option value="">Todas UFs</option></select>
+      </div>
+      <div id="tec-list" style="flex:1;overflow-y:auto;padding:4px 6px"></div>
+    </div>
+    <!-- RIGHT: detail -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div id="tec-empty" style="flex:1;display:flex;align-items:center;justify-content:center;color:#2a4060;font-size:14px">&#8592; Selecione um t&#233;cnico para ver detalhes</div>
+      <div id="tec-detail" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div id="tec-hdr" style="padding:12px 16px;background:#111d2e;border-bottom:1px solid #1e3050;flex-shrink:0"></div>
+        <div style="padding:7px 12px;background:#0f1923;border-bottom:1px solid #1e3050;display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap">
+          <input type="checkbox" id="tec-sel-all" onchange="tecTogAll(this.checked)" title="Selecionar todos" style="cursor:pointer;width:15px;height:15px">
+          <input class="sinput" id="tcs" style="width:150px" placeholder="Buscar cliente..." oninput="buildTecCli()">
+          <button class="btn ok" onclick="openAddCliToTec()" style="font-size:10px">+ Adicionar Cliente</button>
+          <span id="tcc" style="font-size:11px;color:#4a7090;margin-left:auto"></span>
+        </div>
+        <div id="tec-bulk" style="display:none;background:#1a3050;padding:6px 14px;border-bottom:1px solid #2a5080;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0">
+          <span id="tec-bulk-cnt" style="font-size:11px;color:#7eb8f7;font-weight:700"></span>
+          <span class="lbl">Realocar para:</span>
+          <select id="tec-bulk-tec" style="background:#162035;border:1px solid #2a4060;color:#cde;border-radius:4px;padding:3px 6px;font-size:11px;flex:1;min-width:180px"></select>
+          <button class="btn ok" onclick="tecBulkReassign()">&#10003; Aplicar</button>
+          <button class="btn" onclick="tecClearSel()" style="background:#2a1010;border-color:#5a2020;color:#f08080">&#10007; Limpar</button>
+        </div>
+        <div id="tec-cli" style="flex:1;overflow-y:auto;padding:6px 10px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ov" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="mb"><h3 id="mt"></h3><div id="mbody"></div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+
+const BR_STATES = {
+AM:[[-1.4,-73.1],[2.3,-69.8],[0.7,-66.1],[-1.1,-65.0],[-4.2,-64.8],[-6.6,-70.5],[-4.4,-73.0],[-2.0,-73.3]],
+RR:[[1.5,-60.2],[4.5,-60.1],[5.2,-62.3],[4.0,-63.5],[2.5,-64.7],[1.0,-63.0],[1.5,-60.2]],
+AP:[[1.2,-50.5],[3.7,-51.9],[4.5,-52.5],[3.0,-53.5],[1.5,-52.0],[0.5,-51.0],[1.2,-50.5]],
+PA:[[-1.3,-48.5],[-0.1,-51.1],[0.5,-52.5],[2.0,-53.5],[2.5,-51.5],[1.8,-50.0],[-0.5,-49.5],[-1.3,-50.5],[-1.5,-52.5],[-2.8,-53.5],[-4.0,-55.0],[-5.5,-58.0],[-7.5,-60.0],[-8.5,-58.0],[-7.0,-55.0],[-5.5,-54.0],[-4.5,-51.5],[-3.0,-49.0],[-1.3,-48.5]],
+AC:[[-7.1,-73.9],[-8.6,-72.8],[-10.0,-71.5],[-11.1,-70.3],[-10.9,-68.7],[-9.8,-67.8],[-8.5,-69.9],[-7.5,-73.0],[-7.1,-73.9]],
+RO:[[-8.4,-67.8],[-9.8,-67.8],[-10.9,-68.7],[-12.5,-63.0],[-11.0,-61.0],[-9.5,-62.5],[-8.0,-65.5],[-8.4,-67.8]],
+MT:[[-10.0,-58.5],[-9.0,-60.5],[-8.5,-58.0],[-7.5,-55.0],[-11.0,-52.0],[-13.0,-52.5],[-14.5,-52.0],[-15.5,-55.0],[-16.5,-57.5],[-17.0,-58.0],[-16.5,-60.5],[-14.0,-60.5],[-12.5,-63.0],[-10.9,-68.7],[-10.0,-66.0],[-9.5,-62.5],[-11.0,-61.0],[-10.0,-58.5]],
+MS:[[-17.0,-57.5],[-18.0,-57.5],[-20.0,-58.2],[-21.5,-58.0],[-23.5,-54.5],[-24.0,-54.0],[-23.5,-51.5],[-20.5,-50.0],[-19.0,-52.5],[-17.0,-54.5],[-17.0,-57.5]],
+GO:[[-14.0,-46.5],[-13.0,-46.0],[-11.5,-46.5],[-11.0,-47.5],[-11.0,-50.5],[-12.5,-52.0],[-14.5,-52.0],[-16.5,-52.0],[-18.0,-52.0],[-18.0,-50.5],[-17.0,-50.0],[-16.0,-48.5],[-15.0,-47.5],[-14.0,-46.5]],
+DF:[[-15.5,-47.3],[-15.0,-47.3],[-15.5,-48.2],[-16.0,-48.0],[-15.5,-47.3]],
+TO:[[-11.0,-47.5],[-10.0,-47.5],[-8.5,-48.0],[-6.5,-47.5],[-5.5,-48.5],[-7.5,-50.0],[-9.0,-51.5],[-11.0,-50.5],[-11.0,-47.5]],
+MA:[[-1.5,-44.0],[-1.0,-45.5],[0.5,-44.7],[1.5,-44.5],[2.5,-43.5],[2.5,-41.5],[1.5,-40.5],[0.5,-41.5],[-2.0,-41.5],[-3.5,-42.5],[-4.5,-43.5],[-5.5,-44.0],[-4.5,-45.0],[-4.0,-46.5],[-5.0,-47.5],[-6.0,-47.0],[-7.5,-47.5],[-7.5,-45.5],[-6.5,-44.0],[-5.0,-43.0],[-3.5,-43.0],[-2.5,-44.0],[-1.5,-44.0]],
+PI:[[-3.5,-42.5],[-3.0,-41.5],[-1.5,-40.5],[0.0,-41.5],[-2.0,-41.5],[-3.5,-42.5]],
+CE:[[-2.8,-40.5],[-2.5,-37.3],[-4.5,-37.0],[-6.5,-38.5],[-7.5,-38.0],[-7.5,-41.0],[-5.0,-42.5],[-3.5,-42.5],[-2.0,-41.5],[0.0,-41.5],[-1.5,-40.5],[-2.0,-40.0],[-2.8,-40.5]],
+RN:[[-4.5,-37.0],[-5.5,-35.0],[-6.0,-35.2],[-7.0,-37.5],[-6.5,-38.5],[-4.5,-37.0]],
+PB:[[-6.0,-35.2],[-7.0,-34.8],[-8.0,-35.0],[-8.0,-37.5],[-7.0,-37.5],[-6.0,-35.2]],
+PE:[[-7.0,-34.8],[-8.5,-35.0],[-9.5,-37.5],[-9.5,-38.5],[-7.5,-38.0],[-6.5,-38.5],[-7.0,-37.5],[-8.0,-37.5],[-8.0,-35.0],[-7.0,-34.8]],
+AL:[[-8.5,-35.0],[-9.5,-37.5],[-9.5,-38.5],[-10.5,-36.5],[-9.0,-35.5],[-8.5,-35.0]],
+SE:[[-9.5,-37.5],[-10.5,-36.5],[-9.0,-35.5],[-11.5,-37.5],[-11.0,-38.0],[-9.5,-37.5]],
+BA:[[-9.5,-38.5],[-9.5,-37.5],[-11.0,-38.0],[-11.5,-37.5],[-13.0,-38.5],[-14.0,-39.0],[-15.5,-39.0],[-17.5,-39.0],[-17.0,-41.0],[-16.5,-43.5],[-15.0,-43.0],[-14.0,-44.5],[-12.0,-45.0],[-10.5,-46.5],[-9.0,-45.0],[-8.0,-45.0],[-7.5,-45.5],[-7.5,-47.5],[-10.0,-47.5],[-11.0,-47.5],[-12.5,-46.5],[-14.0,-46.5],[-14.0,-44.5],[-15.0,-44.5],[-15.5,-41.0],[-14.5,-39.5],[-12.5,-38.5],[-9.5,-38.5]],
+MG:[[-14.5,-46.5],[-15.0,-47.5],[-16.0,-48.5],[-17.0,-50.0],[-18.0,-50.5],[-18.0,-52.0],[-19.0,-52.5],[-20.5,-50.0],[-20.5,-48.0],[-22.0,-47.5],[-23.0,-46.5],[-22.5,-45.0],[-22.0,-43.0],[-20.5,-41.0],[-18.5,-40.0],[-17.5,-39.0],[-17.0,-41.0],[-16.5,-43.5],[-15.0,-43.0],[-14.0,-44.5],[-12.0,-45.0],[-12.5,-46.5],[-14.5,-46.5]],
+ES:[[-18.5,-40.0],[-20.5,-41.0],[-21.5,-41.0],[-21.3,-40.0],[-20.0,-40.0],[-19.5,-39.8],[-18.5,-40.0]],
+RJ:[[-21.5,-41.0],[-22.0,-43.0],[-23.0,-44.5],[-23.5,-45.5],[-22.5,-43.5],[-21.7,-41.0],[-21.5,-41.0]],
+SP:[[-20.5,-48.0],[-20.5,-50.0],[-23.5,-51.5],[-24.0,-50.0],[-23.0,-46.5],[-22.0,-47.5],[-20.5,-48.0]],
+PR:[[-23.5,-54.5],[-24.0,-54.0],[-23.5,-51.5],[-24.0,-50.0],[-26.0,-49.5],[-26.5,-51.5],[-27.0,-54.5],[-25.5,-55.0],[-23.5,-54.5]],
+SC:[[-26.5,-51.5],[-27.0,-54.5],[-28.5,-53.5],[-29.0,-50.0],[-27.5,-48.5],[-26.5,-51.5]],
+RS:[[-27.0,-54.5],[-28.5,-53.5],[-29.0,-50.0],[-32.0,-52.0],[-33.7,-53.3],[-33.5,-56.0],[-32.0,-56.5],[-30.0,-57.0],[-28.5,-56.0],[-27.0,-54.5]],
+RN_PB_placeholder:[],
+};
+
+
+let EMP=[],CLI=[],DIAS=[];
+const UF_CLR={SP:'#3d9be9',RJ:'#e94b3d',MG:'#4dca72',BA:'#f5a623',PR:'#b47ce9',
+  RS:'#4dcacc',SC:'#e94b9d',GO:'#f5e623',CE:'#f58823',PE:'#9de94b',AL:'#e96b23',
+  SE:'#23e9b4',ES:'#e9234b',PA:'#23a4e9',AM:'#f023e9',MA:'#7ae923',PI:'#e923f0',
+  PB:'#23e963',RN:'#f0a323',MT:'#23f0a3',MS:'#f06323',DF:'#a323f0',TO:'#23d4f0',
+  RO:'#d4f023',AC:'#f0d423',AP:'#2346f0',RR:'#f02346'};
+function uc(uf){return UF_CLR[uf]||'#90c0d0'}
+
+// ════════════ MAP ENGINE ════════════
+const TSIZ=256;
+let Z=4,CX=-52,CY=-15.8;  // zoom, center lon/lat
+let isDrag=false,hasDragged=false,dStartX,dStartY,dStartCX,dStartCY;
+let selF=null,hovObj=null;
+let filtEmp=EMP,filtCli=CLI;
+let tileLayer,svgEl,gLines,gMarkers,mapCont;
+let tileCache={};
+const TILE_TMPL={
+  'carto-dark':'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+  'osm':'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  'carto-light':'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+  'none':null
+};
+let tSrc='carto-dark';
+const SUBS=['a','b','c'];
+
+function ll2t(lat,lon,z){
+  const n=Math.pow(2,z),x=(lon+180)/360*n;
+  const r=lat*Math.PI/180;
+  const y=(1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n;
+  return{x,y};
+}
+function t2ll(tx,ty,z){
+  const n=Math.pow(2,z);
+  const lon=tx/n*360-180;
+  const lat=Math.atan(Math.sinh(Math.PI*(1-2*ty/n)))*180/Math.PI;
+  return{lat,lon};
+}
+function ll2px(lat,lon){
+  const W=mapCont.clientWidth,H=mapCont.clientHeight;
+  const cp=ll2t(CY,CX,Z),pp=ll2t(lat,lon,Z);
+  return{x:(pp.x-cp.x)*TSIZ+W/2, y:(pp.y-cp.y)*TSIZ+H/2};
+}
+
+function initMap(){
+  mapCont=document.getElementById('map-container');
+  tileLayer=document.getElementById('tile-layer');
+  svgEl=document.getElementById('svg-overlay');
+  gLines=document.getElementById('g-lines');
+  gMarkers=document.getElementById('g-markers');
+  populateMFilters();buildSide();
+  renderMap();
+
+  mapCont.addEventListener('mousedown',e=>{
+    isDrag=true;hasDragged=false;dStartX=e.clientX;dStartY=e.clientY;
+    dStartCX=CX;dStartCY=CY;mapCont.classList.add('dragging');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{
+    if(isDrag){
+      const dx=e.clientX-dStartX,dy=e.clientY-dStartY;
+      if(Math.hypot(dx,dy)>3)hasDragged=true;
+      const cp=ll2t(dStartCY,dStartCX,Z);
+      const np=t2ll(cp.x-dx/TSIZ,cp.y-dy/TSIZ,Z);
+      CX=Math.max(-180,Math.min(180,np.lon));
+      CY=Math.max(-80,Math.min(80,np.lat));
+      renderMap();
+    } else {
+      // hover
+      const rect=mapCont.getBoundingClientRect();
+      const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+      let found=null;
+      for(const ep of filtEmp){const p=ll2px(ep.lat,ep.lon);if(Math.hypot(mx-p.x,my-p.y)<13){found=ep;break;}}
+      if(!found){for(const c of filtCli){const p=ll2px(c.lat,c.lon);if(Math.hypot(mx-p.x,my-p.y)<7){found=c;break;}}}
+      if(found!==hovObj){hovObj=found;renderMarkers();}
+      const tip=document.getElementById('map-tip');
+      if(found){
+        const isE=EMP.includes(found);
+        const dc=found.dist_km<50?'#50d080':found.dist_km<150?'#f0c040':'#f06060';
+        tip.style.cssText=`display:block;left:${mx+14}px;top:${my-8}px`;
+        tip.innerHTML=isE
+          ?`<div class="tt">&#128374; ${found.nome}</div><div style="color:#80a0c0">${found.cidade||'—'}, ${found.uf} · ${found.empresa}</div><div style="color:#f0c060;font-size:10px;margin-top:2px">${CLI.filter(c=>c.tecnico===found.nome).length} clientes · Clique para ver rotas</div>`
+          :`<div class="tt">&#127970; ${found.nome}</div><div style="color:#80a0c0;font-size:10px">${found.unidade}</div><div style="font-size:10px;margin-top:2px">T&#233;cnico: <b style="color:#7eb8f7">${found.tecnico}</b></div><div style="font-size:10px">Dist: <b style="color:${dc}">${found.dist_km}km</b> · ${found.dia_label||'—'}</div>`;
+      } else {
+        tip.style.display='none';
+      }
+    }
+  });
+  window.addEventListener('mouseup',()=>{isDrag=false;mapCont.classList.remove('dragging');});
+  mapCont.addEventListener('click',ev=>{
+    if(hasDragged)return;
+    const rect=mapCont.getBoundingClientRect();
+    const mx=ev.clientX-rect.left,my=ev.clientY-rect.top;
+    // Find nearest employee within 24px hit radius
+    let best=null,bestD=24;
+    for(const ep of filtEmp){
+      const p=ll2px(ep.lat,ep.lon);
+      const d=Math.hypot(mx-p.x,my-p.y);
+      if(d<bestD){bestD=d;best=ep;}
+    }
+    if(best){selectTech(best.nome);return;}
+    // Check client dots
+    let bestC=null,bestCD=10;
+    for(let i=0;i<filtCli.length;i++){
+      const c=filtCli[i];
+      const p=ll2px(c.lat,c.lon);
+      const d=Math.hypot(mx-p.x,my-p.y);
+      if(d<bestCD){bestCD=d;bestC=c;}
+    }
+    if(bestC){openReassign(CLI.indexOf(bestC));return;}
+    // Click on empty area: deselect
+    if(selF){selF=null;renderLines();renderMarkers();}
+  });
+  mapCont.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1:-1);},{passive:false});
+  window.addEventListener('resize',()=>renderMap());
+}
+
+function renderMap(){
+  renderTiles();
+  updateSVGSize();
+  renderLines();
+  renderMarkers();
+}
+
+function renderTiles(){
+  const W=mapCont.clientWidth,H=mapCont.clientHeight;
+  const tmpl=TILE_TMPL[tSrc];
+  // Clear old tiles that are far off screen
+  const existing={};
+  Array.from(tileLayer.children).forEach(img=>{
+    existing[img.dataset.key]=img;
+  });
+  const used=new Set();
+  if(!tmpl){
+    tileLayer.innerHTML='';
+    drawBrazilBackground();
+    return;
+  }
+  const cp=ll2t(CY,CX,Z);
+  const n=Math.pow(2,Z);
+  const x0=Math.floor(cp.x-W/(2*TSIZ))-1;
+  const y0=Math.floor(cp.y-H/(2*TSIZ))-1;
+  const x1=Math.ceil(cp.x+W/(2*TSIZ))+1;
+  const y1=Math.ceil(cp.y+H/(2*TSIZ))+1;
+  for(let tx=x0;tx<=x1;tx++){
+    for(let ty=y0;ty<=y1;ty++){
+      if(ty<0||ty>=n)continue;
+      const ttx=((tx%n)+n)%n;
+      const key=`${Z}/${ttx}/${ty}`;
+      const sx=Math.round((tx-cp.x)*TSIZ+W/2);
+      const sy=Math.round((ty-cp.y)*TSIZ+H/2);
+      used.add(key);
+      if(existing[key]){
+        existing[key].style.left=sx+'px';
+        existing[key].style.top=sy+'px';
+      } else {
+        const s=SUBS[(ttx+ty)%3];
+        const url=tmpl.replace('{z}',Z).replace('{x}',ttx).replace('{y}',ty).replace('{s}',s);
+        const img=document.createElement('img');
+        img.dataset.key=key;
+        img.style.cssText=`position:absolute;left:${sx}px;top:${sy}px;width:${TSIZ}px;height:${TSIZ}px;display:block;`;
+        img.src=url;
+        img.onerror=()=>{img.style.display='none';}
+        tileLayer.appendChild(img);
+      }
+    }
+  }
+  // Remove unused tiles
+  Array.from(tileLayer.children).forEach(img=>{
+    if(!used.has(img.dataset.key))img.remove();
+  });
+  removeBrazilBg();
+}
+
+function drawBrazilBackground(){
+  // Draw Brazil states as SVG background when offline
+  let svg=document.getElementById('brazil-bg-svg');
+  if(!svg){
+    svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.id='brazil-bg-svg';
+    svg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+    mapCont.insertBefore(svg,svgEl);
+  }
+  svg.innerHTML='';
+  const W=mapCont.clientWidth,H=mapCont.clientHeight;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  // Ocean background
+  const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  bg.setAttribute('width','100%');bg.setAttribute('height','100%');
+  bg.setAttribute('fill','#1a2535');svg.appendChild(bg);
+  // Draw states
+  Object.entries(BR_STATES).forEach(([k,pts])=>{
+    if(!pts.length)return;
+    const d=pts.map((p,i)=>{
+      const px=ll2px(p[0],p[1]);
+      return(i===0?'M':'L')+Math.round(px.x)+','+Math.round(px.y);
+    }).join(' ')+'Z';
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',d);
+    path.setAttribute('fill','#1e3050');
+    path.setAttribute('stroke','#2a4a70');
+    path.setAttribute('stroke-width','0.8');
+    svg.appendChild(path);
+  });
+}
+function removeBrazilBg(){const b=document.getElementById('brazil-bg-svg');if(b)b.remove();}
+
+function updateSVGSize(){
+  const W=mapCont.clientWidth,H=mapCont.clientHeight;
+  svgEl.setAttribute('width',W);svgEl.setAttribute('height',H);
+  svgEl.setAttribute('viewBox',`0 0 ${W} ${H}`);
+}
+
+function renderLines(){
+  gLines.innerHTML='';
+  if(!selF)return;
+  const emp=EMP.find(e=>e.nome===selF);if(!emp)return;
+  const ep=ll2px(emp.lat,emp.lon);
+  let myCli=filtCli.filter(c=>c.tecnico===selF);
+  if(!myCli.length)myCli=CLI.filter(c=>c.tecnico===selF);
+  const frag=document.createDocumentFragment();
+  myCli.forEach(c=>{
+    const cp=ll2px(c.lat,c.lon);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',ep.x);line.setAttribute('y1',ep.y);
+    line.setAttribute('x2',cp.x);line.setAttribute('y2',cp.y);
+    line.setAttribute('stroke',uc(emp.uf));
+    line.setAttribute('stroke-width','1.2');
+    line.setAttribute('stroke-opacity','0.55');
+    line.setAttribute('stroke-dasharray','4 4');
+    frag.appendChild(line);
+  });
+  gLines.appendChild(frag);
+}
+
+function renderMarkers(){
+  gMarkers.innerHTML='';
+  const W=mapCont.clientWidth,H=mapCont.clientHeight;
+  const frag=document.createDocumentFragment();
+  // Client dots
+  filtCli.forEach(c=>{
+    const {x,y}=ll2px(c.lat,c.lon);
+    if(x<-10||x>W+10||y<-10||y>H+10)return;
+    const isSel=c.tecnico===selF;
+    const clr=c.tecnico&&c.tecnico!='SEM TECNICO'?'#f0a030':'#e05050';
+    const r=c===hovObj?7:isSel?5:3;
+    const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx',x);circle.setAttribute('cy',y);circle.setAttribute('r',r);
+    circle.setAttribute('fill',clr);circle.setAttribute('fill-opacity',c===hovObj?1:0.75);
+    if(c===hovObj){circle.setAttribute('stroke','#fff');circle.setAttribute('stroke-width','1.5');}
+    frag.appendChild(circle);
+  });
+  // Employee markers
+  filtEmp.forEach(e=>{
+    const {x,y}=ll2px(e.lat,e.lon);
+    if(x<-20||x>W+20||y<-20||y>H+20)return;
+    const clr=uc(e.uf);
+    const r=e===hovObj?14:11;
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','clickable');
+    g.setAttribute('transform',`translate(${x},${y})`);
+    g.setAttribute('pointer-events','all');
+    g.style.cursor='pointer';
+    // Transparent larger hit area
+    const hit=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    hit.setAttribute('r',22);hit.setAttribute('fill','transparent');
+    g.appendChild(hit);
+    // Glow ring for selected
+    if(e.nome===selF){
+      const ring=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      ring.setAttribute('r',r+5);ring.setAttribute('fill','none');
+      ring.setAttribute('stroke','#fff');ring.setAttribute('stroke-width','2');
+      ring.setAttribute('stroke-opacity','0.6');frag.appendChild(ring);
+      g.appendChild(ring);
+    }
+    const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('r',r);circle.setAttribute('fill',clr);
+    circle.setAttribute('stroke','rgba(255,255,255,0.9)');circle.setAttribute('stroke-width','2');
+    g.appendChild(circle);
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('text-anchor','middle');txt.setAttribute('dominant-baseline','middle');
+    txt.setAttribute('fill','#000');txt.setAttribute('font-size','9');
+    txt.setAttribute('font-weight','bold');txt.setAttribute('font-family','Arial');
+    txt.textContent='T';g.appendChild(txt);
+    g.addEventListener('click',ev=>{ev.stopPropagation();if(!hasDragged)selectTech(e.nome);});
+    frag.appendChild(g);
+  });
+  gMarkers.appendChild(frag);
+}
+
+function zoom(dir){
+  Z=Math.max(2,Math.min(18,Z+dir));
+  tileCache={};tileLayer.innerHTML='';renderMap();
+}
+function changeTiles(){tSrc=document.getElementById('tsrc').value;tileCache={};tileLayer.innerHTML='';renderMap();}
+
+function selectTech(name){
+  selF=name;
+  renderLines();renderMarkers();
+  document.querySelectorAll('.ri').forEach(el=>el.classList.toggle('sel',el.dataset.n===name));
+  const cnt=CLI.filter(c=>c.tecnico===name).length;
+  toast(cnt+' rotas para '+name);
+}
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371,la1=lat1*Math.PI/180,lo1=lon1*Math.PI/180,la2=lat2*Math.PI/180,lo2=lon2*Math.PI/180;
+  const a=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin((lo2-lo1)/2)**2;
+  return Math.round(R*2*Math.asin(Math.sqrt(a))*10)/10;
+}
+function openReassign(idx){
+  const c=CLI[idx];
+  const sorted=EMP.map(e=>({nome:e.nome,uf:e.uf,d:haversine(c.lat,c.lon,e.lat,e.lon)})).sort((a,b)=>a.d-b.d);
+  const opts=sorted.map(e=>`<option value="${e.nome.replace(/"/g,'&quot;')}"${e.nome===c.tecnico?' selected':''}>${e.nome} (${e.uf} &middot; ${e.d}km)</option>`).join('');
+  const dOpts=DIAS.map((d,i)=>`<option value="${i}"${c.dia_num===i?' selected':''}>${d.label} &mdash; ${d.dia_semana} ${d.data_fmt}</option>`).join('');
+  const dc=c.dist_km<50?'#50d080':c.dist_km<150?'#f0c040':'#f06060';
+  document.getElementById('mt').innerHTML='&#9998; Realocar Cliente';
+  document.getElementById('mbody').innerHTML=
+    `<div style="background:#0a1520;border-radius:5px;padding:9px;margin-bottom:12px">
+      <div style="font-weight:700;color:#7eb8f7;font-size:13px">${c.nome}</div>
+      <div style="font-size:11px;color:#80a0c0;margin-top:2px">${c.unidade}</div>
+      <div style="font-size:10px;color:#506070;margin-top:2px">${c.endereco||'&mdash;'}</div>
+      <div style="font-size:11px;margin-top:5px">Dist atual: <b style="color:${dc}">${c.dist_km}km</b> &nbsp;&bull;&nbsp; T&#233;cnico atual: <b style="color:#7eb8f7">${c.tecnico||'&mdash;'}</b></div>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:4px;font-weight:600">&#128374; T&#233;cnico &mdash; ordenado por proximidade:</label>
+      <select id="ra-tec" style="background:#162035;border:1px solid #2a6080;color:#cde;border-radius:4px;padding:5px 8px;font-size:11px;width:100%">${opts}</select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:4px;font-weight:600">&#128197; Dia da visita:</label>
+      <select id="ra-dia" style="background:#162035;border:1px solid #2a6080;color:#cde;border-radius:4px;padding:5px 8px;font-size:11px;width:100%">${dOpts}</select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn ok" onclick="confRA(${idx})">&#10003; Confirmar</button>
+      <button class="btn" onclick="document.getElementById('ov').classList.remove('show')">Cancelar</button>
+    </div>`;
+  document.getElementById('ov').classList.add('show');
+}
+function confRA(idx){
+  const tec=document.getElementById('ra-tec').value;
+  const dia=parseInt(document.getElementById('ra-dia').value);
+  const c=CLI[idx];const prev=c.tecnico;
+  c.tecnico=tec;c.dia_num=dia;
+  const d=DIAS[dia];c.data=d.iso||'';c.semana=d.semana;c.dia_label=d.label;
+  const e=EMP.find(x=>x.nome===tec);
+  if(e)c.dist_km=haversine(c.lat,c.lon,e.lat,e.lon);
+  document.getElementById('ov').classList.remove('show');
+  if(selF===prev||selF===tec){renderLines();}
+  renderMarkers();filterCli();
+  toast(c.nome+' → '+tec);
+}
+
+function populateMFilters(){
+  const ufs=[...new Set(EMP.map(e=>e.uf))].filter(Boolean).sort();
+  ufs.forEach(u=>{const o=new Option(u,u);document.getElementById('muf').appendChild(o)});
+  DIAS.forEach((d,i)=>{const o=new Option(`Dia ${i+1} — ${d.dia_semana} ${d.data_fmt}`,i);document.getElementById('mdia').appendChild(o)});
+}
+function buildSide(){
+  const q=(document.getElementById('ss2').value||'').toLowerCase();
+  const emps=filtEmp.filter(e=>!q||e.nome.toLowerCase().includes(q));
+  const cnt={};CLI.forEach(c=>{if(c.tecnico)cnt[c.tecnico]=(cnt[c.tecnico]||0)+1;});
+  emps.sort((a,b)=>(cnt[b.nome]||0)-(cnt[a.nome]||0));
+  const list=document.getElementById('route-list');list.innerHTML='';
+  emps.forEach(e=>{
+    const c=cnt[e.nome]||0;
+    const d=document.createElement('div');
+    d.className='ri'+(e.nome===selF?' sel':'');d.dataset.n=e.nome;
+    d.innerHTML=`<div class="rn">${e.nome}</div><div class="rd">${e.cidade||'—'}, ${e.uf} &middot; ${e.empresa}</div><span class="rb" style="background:${uc(e.uf)}22;color:${uc(e.uf)}">${c} clientes</span>`;
+    d.onclick=()=>{selectTech(e.nome);CX=e.lon;CY=e.lat;if(Z<7)Z=7;tileLayer.innerHTML='';renderMap();};
+    list.appendChild(d);
+  });
+}
+function applyMF(){
+  const uf=document.getElementById('muf').value,dia=parseInt(document.getElementById('mdia').value);
+  filtEmp=EMP.filter(e=>!uf||e.uf===uf);
+  const en=new Set(filtEmp.map(e=>e.nome));
+  filtCli=CLI.filter(c=>(!uf||en.has(c.tecnico))&&(dia<0||c.dia_num===dia));
+  selF=null;tileLayer.innerHTML='';renderMap();buildSide();
+}
+function resetMF(){
+  document.getElementById('muf').value='';document.getElementById('mdia').value='-1';
+  filtEmp=EMP;filtCli=CLI;selF=null;tileLayer.innerHTML='';renderMap();buildSide();
+}
+
+// ════════════ SCHEDULE ════════════
+let schedW=-1;
+function setW(w){schedW=w;buildSched();}
+function buildSched(){
+  const q=(document.getElementById('ss').value||'').toLowerCase();
+  const uf=document.getElementById('suf').value;
+  if(document.getElementById('suf').children.length<=1){
+    const ufs=[...new Set(EMP.map(e=>e.uf))].filter(Boolean).sort();
+    ufs.forEach(u=>{const o=new Option(u,u);document.getElementById('suf').appendChild(o)});
+  }
+  const r0=schedW<0?0:schedW*5,r1=schedW<0?20:schedW*5+4;
+  const days=DIAS.slice(r0,r1+1);
+  const pv={};CLI.forEach(c=>{if(!c.tecnico)return;if(!pv[c.tecnico])pv[c.tecnico]={};pv[c.tecnico][c.dia_num]=(pv[c.tecnico][c.dia_num]||0)+1;});
+  const emps=EMP.filter(e=>(!uf||e.uf===uf)&&(!q||e.nome.toLowerCase().includes(q))).sort((a,b)=>a.uf.localeCompare(b.uf)||a.nome.localeCompare(b.nome));
+  let h='<tr><th>T&#233;cnico</th><th>UF</th>';
+  days.forEach((d,i)=>{const a=r0+i;const w=(a+1)%5===0&&i<days.length-1;h+=`<th class="vth${w?' wsep':''}" title="${d.dia_semana} ${d.data_fmt}">${d.label}<br>${d.dia_semana.substr(0,3)}<br>${d.data_fmt.substr(0,5)}</th>`;});
+  h+='<th class="tot">Total</th></tr>';
+  document.getElementById('sth').innerHTML=h;
+  const dt={};let grand=0;
+  let rows='';
+  emps.forEach(e=>{
+    const ep=pv[e.nome]||{};let tot=0;
+    let row=`<tr><td onclick="showP('map');setTimeout(()=>selectTech('${e.nome.replace(/'/,"\'").replace(/"/,'\"')}'),80)" style="cursor:pointer;color:#7eb8f7">${e.nome}</td><td><span class="ub" style="background:${uc(e.uf)}22;color:${uc(e.uf)}">${e.uf}</span></td>`;
+    days.forEach((d,i)=>{const a=r0+i;const cnt=ep[a]||0;tot+=cnt;dt[a]=(dt[a]||0)+cnt;const cl=cnt===0?'c0':cnt<=3?'c1':cnt<=6?'c2':cnt<=9?'c3':'c4';const w=(a+1)%5===0&&i<days.length-1;row+=`<td class="${cl}${w?' wsep':''}" onclick="openDD('${e.nome.replace(/'/,"\'").replace(/"/,'\"')}',${a})" title="${cnt} visitas">${cnt||''}</td>`;});
+    grand+=tot;row+=`<td class="tot">${tot}</td></tr>`;rows+=row;
+  });
+  let tr='<tr class="trow"><td>TOTAL DIA</td><td>—</td>';
+  days.forEach((d,i)=>{const a=r0+i;const w=(a+1)%5===0&&i<days.length-1;tr+=`<td${w?' class="wsep"':''}>${dt[a]||''}</td>`;});
+  tr+=`<td class="tot">${grand}</td></tr>`;
+  document.getElementById('stb').innerHTML=rows+tr;
+}
+function openDD(fn,dn){
+  const cs=CLI.filter(c=>c.tecnico===fn&&c.dia_num===dn);if(!cs.length)return;
+  const d=DIAS[dn];
+  const tecOpts=EMP.map(e=>`<option value="${e.nome.replace(/"/g,'&quot;')}">${e.nome} (${e.uf})</option>`).join('');
+  const dOpts=DIAS.map((dd,di)=>`<option value="${di}">${dd.label} ${dd.data_fmt}</option>`).join('');
+  document.getElementById('mt').innerHTML='&#128197; '+fn+' &mdash; '+d.dia_semana+' '+d.data_fmt;
+  document.getElementById('mbody').innerHTML=
+    `<div style="font-size:10px;color:#4a7090;margin-bottom:8px">Altere t&#233;cnico ou dia de qualquer cliente abaixo &mdash; salva automaticamente.</div>`+
+    cs.map(c=>{
+      const idx=CLI.indexOf(c);
+      const _emp=EMP.find(e=>e.nome===selTec)||{lat:0,lon:0};
+    const _dkm=haversine(_emp.lat,_emp.lon,c.lat,c.lon);
+    const dc=_dkm<50?'#50d080':_dkm<150?'#f0c040':'#f06060';
+      const to=EMP.map(e=>`<option value="${e.nome.replace(/"/g,'&quot;')}"${e.nome===c.tecnico?' selected':''}>${e.nome} (${e.uf})</option>`).join('');
+      const ddo=DIAS.map((dd,di)=>`<option value="${di}"${di===c.dia_num?' selected':''}>${dd.label} ${dd.data_fmt}</option>`).join('');
+      return`<div style="border:1px solid #1e3050;border-radius:5px;padding:8px;margin-bottom:7px;background:#0a1520">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div><div style="font-weight:700;color:#7eb8f7;font-size:12px">${c.nome}</div>
+          <div style="font-size:10px;color:#80a0c0">${c.unidade}</div></div>
+          <span style="font-size:11px;font-weight:700;color:${dc}">${_dkm}km</span>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <select onchange="inlineUpdT(${idx},this.value)" style="flex:1;min-width:170px;background:#162035;border:1px solid #2a4060;color:#cde;border-radius:3px;padding:3px 5px;font-size:10px">${to}</select>
+          <select onchange="inlineUpdD(${idx},this.value)" style="flex:1;min-width:130px;background:#162035;border:1px solid #2a4060;color:#cde;border-radius:3px;padding:3px 5px;font-size:10px">${ddo}</select>
+        </div>
+      </div>`;
+    }).join('');
+  document.getElementById('ov').classList.add('show');
+}
+function inlineUpdT(idx,tec){
+  const c=CLI[idx];c.tecnico=tec;
+  const e=EMP.find(x=>x.nome===tec);
+  if(e)c.dist_km=haversine(c.lat,c.lon,e.lat,e.lon);
+  if(selF)renderLines();renderMarkers();
+  toast(c.nome+' → '+tec);
+}
+function inlineUpdD(idx,dia){
+  dia=parseInt(dia);const c=CLI[idx],d=DIAS[dia];
+  c.dia_num=dia;c.data=d.iso||'';c.semana=d.semana;c.dia_label=d.label;
+  toast(c.nome+' → Dia '+(dia+1));
+}
+
+// ════════════ CLIENTS ════════════
+let fCli=[],cSrt={col:'dist_km',asc:true};
+function initCliFilters(){
+  if(document.getElementById('cuf').children.length>1)return;
+  const ufs=[...new Set(CLI.map(c=>c.uf))].filter(Boolean).sort();
+  const tecs=[...new Set(CLI.map(c=>c.tecnico))].filter(Boolean).sort();
+  ufs.forEach(u=>{document.getElementById('cuf').appendChild(new Option(u,u))});
+  tecs.forEach(t=>{document.getElementById('ctec').appendChild(new Option(t,t))});
+  ['Semana 1','Semana 2','Semana 3','Semana 4','Semana 5'].forEach(s=>document.getElementById('csem').appendChild(new Option(s,s)));
+  DIAS.forEach((d,i)=>document.getElementById('cdia').appendChild(new Option(`Dia ${i+1} ${d.data_fmt}`,i)));
+}
+function filterCli(){
+  initCliFilters();
+  const q=document.getElementById('cs').value.toLowerCase(),uf=document.getElementById('cuf').value,tec=document.getElementById('ctec').value,sem=document.getElementById('csem').value,dia=parseInt(document.getElementById('cdia').value);
+  fCli=CLI.filter(c=>{
+    if(uf&&c.uf!==uf)return false;if(tec&&c.tecnico!==tec)return false;
+    if(sem&&c.semana!==sem)return false;if(dia>=0&&c.dia_num!==dia)return false;
+    if(q&&!c.nome.toLowerCase().includes(q)&&!c.unidade.toLowerCase().includes(q)&&!(c.endereco||'').toLowerCase().includes(q))return false;
+    return true;
+  });
+  fCli.sort((a,b)=>{const av=a[cSrt.col],bv=b[cSrt.col];if(typeof av==='number')return cSrt.asc?av-bv:bv-av;return cSrt.asc?String(av||'').localeCompare(String(bv||'')):String(bv||'').localeCompare(String(av||''));});
+  document.getElementById('ccnt').textContent=fCli.length.toLocaleString('pt-BR')+' registros';
+  // Populate bulk bar selects
+  const bTec=document.getElementById('bulk-tec');
+  if(bTec.children.length<=1){EMP.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(e=>{bTec.appendChild(new Option(e.nome+' ('+e.uf+')',e.nome));});}
+  const bDia=document.getElementById('bulk-dia');
+  if(bDia.children.length<=1){DIAS.forEach((d,i)=>{bDia.appendChild(new Option(d.label+' '+d.data_fmt,i));});}
+  const tecN=EMP.map(e=>e.nome);
+  document.getElementById('ctb').innerHTML=fCli.slice(0,400).map(c=>{
+    const idx=CLI.indexOf(c);
+    const dc=c.dist_km<50?'dnear':c.dist_km<150?'dfar':'dvfar';
+    const wn=parseInt((c.semana||'').replace('Semana ',''))||1;
+    const wc=['','w1','w2','w3','w4','w5'][wn]||'';
+    const opts=tecN.map(t=>`<option${t===c.tecnico?' selected':''}>${t}</option>`).join('');
+    return`<tr><td style="text-align:center"><input type="checkbox" class="row-cb" data-idx="${idx}" onchange="updSel()" style="cursor:pointer"></td><td><b>${c.nome}</b></td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#80a0c0" title="${c.unidade}">${c.unidade}</td><td><span class="ub" style="background:${uc(c.uf)}22;color:${uc(c.uf)}">${c.uf}</span></td><td><span class="${dc}">${c.dist_km}km</span></td><td><select class="esel" onchange="updT(${idx},this.value)">${opts}</select></td><td style="color:#80a0c0;white-space:nowrap">${c.dia_label||'—'}</td><td><span class="wbadge ${wc}">${c.semana||'—'}</span></td><td style="white-space:nowrap"><button class="btn" style="padding:2px 6px;font-size:10px" onclick="flyTo(${c.lat},${c.lon})">&#128506;</button><button class="btn" style="padding:2px 6px;font-size:10px;margin-left:2px" onclick="openReassign(${idx})">&#9998;</button></td></tr>`;
+  }).join('');
+}
+function sC(col){if(cSrt.col===col)cSrt.asc=!cSrt.asc;else{cSrt.col=col;cSrt.asc=true;}filterCli();}
+function resetCF(){['cs','cuf','ctec','csem'].forEach(id=>document.getElementById(id).value='');document.getElementById('cdia').value='-1';filterCli();}
+function updT(idx,name){
+  const c=CLI[idx];c.tecnico=name;
+  const e=EMP.find(x=>x.nome===name);
+  if(e)c.dist_km=haversine(c.lat,c.lon,e.lat,e.lon);
+  toast(c.nome+' → '+name);
+}
+function updSel(){
+  const cbs=document.querySelectorAll('.row-cb:checked');
+  const bar=document.getElementById('bulk-bar');
+  bar.style.display=cbs.length?'flex':'none';
+  const cnt=document.getElementById('bulk-cnt');
+  cnt.textContent=cbs.length+' cliente'+(cbs.length>1?'s':'')+' selecionado'+(cbs.length>1?'s':'');
+  const sa=document.getElementById('selAll');
+  if(sa){const all=document.querySelectorAll('.row-cb');sa.indeterminate=cbs.length>0&&cbs.length<all.length;sa.checked=cbs.length===all.length&&all.length>0;}
+}
+function togAll(v){
+  document.querySelectorAll('.row-cb').forEach(cb=>cb.checked=v);
+  updSel();
+}
+function clearSel(){
+  document.querySelectorAll('.row-cb').forEach(cb=>cb.checked=false);
+  const sa=document.getElementById('selAll');if(sa){sa.checked=false;sa.indeterminate=false;}
+  document.getElementById('bulk-bar').style.display='none';
+}
+function bulkReassign(){
+  const tec=document.getElementById('bulk-tec').value;
+  const dia=parseInt(document.getElementById('bulk-dia').value);
+  if(!tec){toast('Escolha um técnico!');return;}
+  const cbs=document.querySelectorAll('.row-cb:checked');
+  let n=0;
+  cbs.forEach(cb=>{
+    const idx=parseInt(cb.dataset.idx);
+    const c=CLI[idx];c.tecnico=tec;
+    const e=EMP.find(x=>x.nome===tec);
+    if(e)c.dist_km=haversine(c.lat,c.lon,e.lat,e.lon);
+    if(dia>=0){const d=DIAS[dia];c.dia_num=dia;c.data=d.iso||'';c.semana=d.semana;c.dia_label=d.label;}
+    n++;
+  });
+  clearSel();filterCli();
+  toast(n+' cliente'+(n>1?'s':'')+' realocado'+(n>1?'s':'')+' → '+tec);
+}
+function flyTo(lat,lon){showP('map');setTimeout(()=>{CX=lon;CY=lat;if(Z<9)Z=9;tileLayer.innerHTML='';renderMap();},80);}
+function editD(idx){
+  const c=CLI[idx];const opts=DIAS.map((d,i)=>`<option value="${i}"${c.dia_num===i?' selected':''}>${d.label} — ${d.dia_semana} ${d.data_fmt}</option>`).join('');
+  document.getElementById('mt').textContent='Alterar Dia da Visita';
+  document.getElementById('mbody').innerHTML=`<div class="mrow"><span class="ml">Cliente:</span><span class="mr">${c.nome}</span></div><div class="mrow"><span class="ml">T&#233;cnico:</span><span class="mr">${c.tecnico}</span></div><div style="margin:12px 0"><label style="font-size:11px;color:#7a9bc0">Novo dia: </label><select id="ndsel" style="background:#162035;border:1px solid #2a6080;color:#cde;border-radius:4px;padding:4px 8px;font-size:11px">${opts}</select></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ok" onclick="confD(${idx})">Confirmar</button><button class="btn" onclick="document.getElementById('ov').classList.remove('show')">Cancelar</button></div>`;
+  document.getElementById('ov').classList.add('show');
+}
+function confD(idx){const nd=parseInt(document.getElementById('ndsel').value);const d=DIAS[nd];CLI[idx].dia_num=nd;CLI[idx].data=d.iso||'';CLI[idx].semana=d.semana;document.getElementById('ov').classList.remove('show');toast('Movido para '+d.dia_semana+' '+d.data_fmt);filterCli();}
+
+// ════════════ REPORT ════════════
+function buildRep(){
+  const uf=document.getElementById('ruf').value,sort=document.getElementById('rsort').value;
+  const q=(document.getElementById('rs')||{}).value||'';
+  if(document.getElementById('ruf').children.length<=1){const ufs=[...new Set(EMP.map(e=>e.uf))].filter(Boolean).sort();ufs.forEach(u=>{document.getElementById('ruf').appendChild(new Option(u,u));});}
+  const cnt={},dist={},wks={};
+  CLI.forEach(c=>{if(!c.tecnico)return;cnt[c.tecnico]=(cnt[c.tecnico]||0)+1;if(!dist[c.tecnico])dist[c.tecnico]=[];dist[c.tecnico].push(c.dist_km);const w=parseInt((c.semana||'').replace('Semana ',''))||1;if(!wks[c.tecnico])wks[c.tecnico]={1:0,2:0,3:0,4:0,5:0};wks[c.tecnico][w]=(wks[c.tecnico][w]||0)+1;});
+  let emps=EMP.filter(e=>(!uf||e.uf===uf)&&(!q||e.nome.toLowerCase().includes(q.toLowerCase())));
+  if(sort==='total')emps.sort((a,b)=>(cnt[b.nome]||0)-(cnt[a.nome]||0));
+  else if(sort==='dist')emps.sort((a,b)=>{const ad=dist[a.nome]||[0],bd=dist[b.nome]||[0];return(ad.reduce((s,v)=>s+v,0)/ad.length)-(bd.reduce((s,v)=>s+v,0)/bd.length);});
+  else emps.sort((a,b)=>a.nome.localeCompare(b.nome));
+  const mx=Math.max(...emps.map(e=>cnt[e.nome]||0),1);
+  const rc=document.getElementById('rcnt');if(rc)rc.textContent=emps.length+' técnico'+(emps.length!==1?'s':'');
+  document.getElementById('rep-cont').innerHTML=emps.length?emps.map(e=>{
+    const c=cnt[e.nome]||0,d=dist[e.nome]||[0];
+    const ad=Math.round(d.reduce((s,v)=>s+v,0)/(d.length||1)),md=Math.round(Math.max(...d,0));
+    const w=wks[e.nome]||{1:0,2:0,3:0,4:0,5:0};const cl=uc(e.uf);
+    return`<div class="rc"><h4 style="color:${cl}">${e.nome} <span style="font-size:9px;background:${cl}22;color:${cl};padding:1px 5px;border-radius:2px;font-weight:400">${e.uf}</span></h4><div class="rs"><span>Clientes</span><span class="sv">${c}</span></div><div class="bw"><div class="bf" style="width:${Math.round(c/mx*100)}%;background:${cl}"></div></div><div class="rs"><span>Cidade base</span><span class="sv">${e.cidade||'—'}</span></div><div class="rs"><span>Dist. m&#233;dia</span><span class="sv">${ad}km</span></div><div class="rs"><span>Dist. m&#225;x</span><span class="sv" style="color:${md>300?'#f06060':md>100?'#f0c040':'#50d080'}">${md}km</span></div><div class="rs"><span>M&#233;dia/dia</span><span class="sv">${(c/21).toFixed(1)}</span></div><div style="display:flex;gap:3px;margin-top:6px">${[1,2,3,4,5].map(n=>`<div style="flex:1;text-align:center"><div style="font-size:9px;color:#4a6a80">S${n}</div><div style="font-size:12px;font-weight:700;color:${['#7eb8f7','#50c070','#c0b030','#d07030','#b070e0'][n-1]}">${w[n]||0}</div></div>`).join('')}</div><button class="btn" style="margin-top:8px;width:100%;font-size:10px" onclick="showP('map');setTimeout(()=>selectTech('${e.nome.replace(/'/,"\'").replace(/"/,'\"')}'),80)">&#128506; Ver no Mapa</button></div>`;
+  }).join(''):'<div style="padding:40px;text-align:center;color:#3a5070;font-size:13px">Nenhum t&#233;cnico encontrado para este filtro.</div>';
+}
+
+// ════════════ UTILS ════════════
+function showP(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelectorAll('.tab')[{map:0,sched:1,cli:2,rep:3,tec:4}[name]].classList.add('active');
+  if(name==='map'){setTimeout(()=>{renderMap();},50);}
+  if(name==='sched')buildSched();
+  if(name==='cli')filterCli();
+  if(name==='rep')buildRep();
+  if(name==='tec')initTecPanel();
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function exportCSV(){const rows=[['Tecnico','UF','Cliente','Unidade','Endereco','Dist km','Dia','Data','Semana']];CLI.forEach(c=>rows.push([c.tecnico,c.uf,c.nome,c.unidade,c.endereco,c.dist_km,c.dia_label,c.data,c.semana]));const csv=rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='preventivas_21dias.csv';a.click();toast('CSV exportado!');}
+function updateKPIs(){const ds=CLI.map(c=>c.dist_km).filter(d=>d>0);document.getElementById('k1').textContent=CLI.length.toLocaleString('pt-BR');document.getElementById('k2').textContent=EMP.length;document.getElementById('k3').textContent=CLI.filter(c=>c.tecnico).length.toLocaleString('pt-BR');document.getElementById('k4').textContent=Math.round(ds.reduce((a,b)=>a+b,0)/(ds.length||1))+'km';document.getElementById('k5').textContent=Math.round(CLI.length/21);}
+
+(async function(){
+  try{
+    const[cl,em,di]=await Promise.all([
+      fetch('clientes.json').then(r=>r.json()),
+      fetch('funcionarios.json').then(r=>r.json()),
+      fetch('dias.json').then(r=>r.json())
+    ]);
+    EMP=em; CLI=cl; DIAS=di;
+  }catch(err){console.error('Erro ao carregar JSONs:',err);}
+  document.addEventListener('DOMContentLoaded',()=>{updateKPIs();initMap();},true);
+  if(document.readyState!=='loading'){updateKPIs();initMap();}
+})();
+
+// ════════════ TÉCNICOS ADMIN ════════════
+let selTec=null;
+const UF_CTR={AC:[-9.02,-70.81],AL:[-9.57,-36.78],AM:[-3.47,-65.1],AP:[1.41,-51.77],BA:[-12.96,-41.33],CE:[-5.5,-39.32],DF:[-15.77,-47.93],ES:[-19.57,-40.59],GO:[-15.83,-49.83],MA:[-5.42,-45.44],MG:[-18.1,-44.38],MS:[-20.77,-54.79],MT:[-12.64,-55.42],PA:[-3.79,-52.48],PB:[-7.24,-36.79],PE:[-8.38,-37.86],PI:[-7.72,-42.73],PR:[-24.89,-51.55],RJ:[-22.25,-42.66],RN:[-5.81,-36.59],RO:[-11.22,-62.8],RR:[1.99,-61.33],RS:[-30.17,-53.5],SC:[-27.45,-50.95],SE:[-10.57,-37.45],SP:[-22.27,-48.75],TO:[-10.18,-48.33]};
+
+function initTecPanel(){
+  const ufs=[...new Set(EMP.map(e=>e.uf))].filter(Boolean).sort();
+  const uf=document.getElementById('tec-uf-f');
+  if(uf&&uf.children.length<=1)ufs.forEach(u=>uf.appendChild(new Option(u,u)));
+  buildTecList();
+}
+function buildTecList(){
+  const q=(document.getElementById('tss')||{}).value||'';
+  const uf=(document.getElementById('tec-uf-f')||{}).value||'';
+  const cnt={};CLI.forEach(c=>{if(c.tecnico)cnt[c.tecnico]=(cnt[c.tecnico]||0)+1;});
+  let emps=EMP.filter(e=>(!uf||e.uf===uf)&&(!q||e.nome.toLowerCase().includes(q.toLowerCase())));
+  emps.sort((a,b)=>a.nome.localeCompare(b.nome));
+  const ce=document.getElementById('tec-list-cnt');
+  if(ce)ce.textContent=emps.length+' t\u00e9cnico'+(emps.length!==1?'s':'');
+  const list=document.getElementById('tec-list');if(!list)return;
+  list.innerHTML=emps.map(e=>{
+    const c=cnt[e.nome]||0;const cl=uc(e.uf);const sel=e.nome===selTec;
+    return`<div onclick="selectTecAdmin(this.dataset.n)" data-n="${e.nome.replace(/"/g,'&quot;')}" style="padding:8px 9px;border-radius:5px;cursor:pointer;border:1px solid ${sel?'#3d7abf':'transparent'};background:${sel?'#1a3050':'transparent'};margin-bottom:3px;transition:all .15s" onmouseover="if(!${sel})this.style.background='#11203a'" onmouseout="if(!${sel})this.style.background='transparent'">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="min-width:0;overflow:hidden">
+          <span style="font-weight:700;color:${sel?'#90c8ff':'#7eb8f7'};font-size:12px">${e.nome}</span>
+          <span style="display:inline-block;background:${cl}22;color:${cl};border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;margin-left:5px">${e.uf}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:8px">
+          <span style="font-size:11px;font-weight:700;color:${c>0?'#50c070':'#3a5060'}">${c}</span>
+          <button onclick="event.stopPropagation();deleteTecConfirm(this.closest('[data-n]').dataset.n)" title="Excluir" style="background:#2a1010;border:1px solid #5a2020;color:#f08080;border-radius:3px;width:20px;height:20px;cursor:pointer;font-size:13px;line-height:1;padding:0">&times;</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#506070;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.cidade||'\u2014'} &middot; ${e.empresa||'\u2014'}</div>
+    </div>`;
+  }).join('');
+}
+function selectTecAdmin(nome){
+  selTec=nome;buildTecList();
+  const e=EMP.find(x=>x.nome===nome);if(!e)return;
+  const cnt=CLI.filter(c=>c.tecnico===nome).length;const cl=uc(e.uf);
+  document.getElementById('tec-empty').style.display='none';
+  const dc=document.getElementById('tec-detail');dc.style.display='flex';
+  document.getElementById('tec-hdr').innerHTML=
+    `<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#7eb8f7;margin-bottom:4px">${e.nome} <span style="background:${cl}22;color:${cl};border-radius:3px;padding:2px 7px;font-size:11px">${e.uf}</span></div>
+        <div style="font-size:11px;color:#80a0c0">${e.cidade||'\u2014'} &middot; ${e.empresa||'\u2014'} &middot; CEP: ${e.cep||'\u2014'}</div>
+        <div style="font-size:12px;margin-top:5px;color:#50c070;font-weight:700">${cnt} cliente${cnt!==1?'s':''} atribu\u00eddo${cnt!==1?'s':''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn" onclick="openEditTec('${nome.replace(/'/g,"\'")}')">&#9998; Editar</button>
+        <button class="btn ok" onclick="flyToTec('${nome.replace(/'/g,"\'")}')">&#128506; Mapa</button>
+        <button class="btn" onclick="deleteTecConfirm('${nome.replace(/'/g,"\'")}') " style="background:#2a1010;border-color:#5a2020;color:#f08080">&#128465; Excluir</button>
+      </div>
+    </div>`;
+  buildTecCli();
+}
+function buildTecCli(){
+  if(!selTec)return;
+  const q=(document.getElementById('tcs')||{}).value||'';
+  const cs=CLI.filter(c=>c.tecnico===selTec&&(!q||c.nome.toLowerCase().includes(q.toLowerCase())||(c.unidade||'').toLowerCase().includes(q.toLowerCase())));
+  const ce=document.getElementById('tcc');if(ce)ce.textContent=cs.length+' cliente'+(cs.length!==1?'s':'');
+  // Populate bulk technician select
+  const bs=document.getElementById('tec-bulk-tec');
+  if(bs&&bs.children.length===0){EMP.filter(e=>e.nome!==selTec).sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(e=>bs.appendChild(new Option(e.nome+' ('+e.uf+')',e.nome)));}
+  const list=document.getElementById('tec-cli');if(!list)return;
+  if(!cs.length){list.innerHTML='<div style="padding:40px;text-align:center;color:#2a4060;font-size:13px">Nenhum cliente atribu\u00eddo.</div>';return;}
+  list.innerHTML=cs.map(c=>{
+    const idx=CLI.indexOf(c);
+    const _emp=EMP.find(e=>e.nome===selTec)||{lat:0,lon:0};
+    const _dkm=haversine(_emp.lat,_emp.lon,c.lat,c.lon);
+    const dc=_dkm<50?'#50d080':_dkm<150?'#f0c040':'#f06060';
+    const wn=parseInt((c.semana||'').replace('Semana ',''))||1;
+    const wc=['','w1','w2','w3','w4','w5'][wn]||'';
+    return`<div style="border:1px solid #1a3050;border-radius:5px;padding:9px;margin-bottom:6px;background:#0a1520;display:flex;align-items:flex-start;gap:8px" id="tec-row-${idx}">
+      <input type="checkbox" class="tec-cb" data-idx="${idx}" onchange="tecUpdSel()" style="cursor:pointer;margin-top:3px;width:15px;height:15px;flex-shrink:0">
+      <div style="min-width:0;flex:1">
+        <div style="font-weight:700;color:#b0d0f0;font-size:12px">${c.nome}</div>
+        <div style="font-size:10px;color:#80a0c0;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.unidade}</div>
+        <div style="font-size:10px;color:#4a6070;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.endereco||'\u2014'}</div>
+        <div style="display:flex;gap:8px;margin-top:5px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:10px;color:${dc};font-weight:700">${_dkm}km</span>
+          <span class="wbadge ${wc}" style="font-size:10px">${c.semana||'\u2014'}</span>
+          <span style="font-size:10px;color:#80a0c0">${c.dia_label||'\u2014'}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">
+        <button class="btn" onclick="openReassign(${idx})" style="font-size:10px;padding:2px 7px">&#9998; Realocar</button>
+        <button onclick="rmCliFromTec(${idx})" style="background:#2a1010;border:1px solid #5a2020;color:#f08080;border-radius:3px;padding:2px 7px;font-size:10px;cursor:pointer">&#10007; Remover</button>
+      </div>
+    </div>`;
+  }).join('');
+  tecUpdSel();
+}
+function tecUpdSel(){
+  const cbs=document.querySelectorAll('.tec-cb:checked');
+  const all=document.querySelectorAll('.tec-cb');
+  const bar=document.getElementById('tec-bulk');
+  if(bar)bar.style.display=cbs.length?'flex':'none';
+  const cnt=document.getElementById('tec-bulk-cnt');
+  if(cnt)cnt.textContent=cbs.length+' cliente'+(cbs.length!==1?'s':'')+' selecionado'+(cbs.length!==1?'s':'');
+  const sa=document.getElementById('tec-sel-all');
+  if(sa){sa.indeterminate=cbs.length>0&&cbs.length<all.length;sa.checked=all.length>0&&cbs.length===all.length;}
+}
+function tecTogAll(v){
+  document.querySelectorAll('.tec-cb').forEach(cb=>cb.checked=v);
+  tecUpdSel();
+}
+function tecClearSel(){
+  document.querySelectorAll('.tec-cb').forEach(cb=>cb.checked=false);
+  const sa=document.getElementById('tec-sel-all');if(sa){sa.checked=false;sa.indeterminate=false;}
+  const bar=document.getElementById('tec-bulk');if(bar)bar.style.display='none';
+}
+function tecBulkReassign(){
+  const tec=document.getElementById('tec-bulk-tec').value;
+  if(!tec){toast('Escolha um t\u00e9cnico!');return;}
+  const cbs=document.querySelectorAll('.tec-cb:checked');
+  const eT=EMP.find(x=>x.nome===tec);
+  let n=0;
+  cbs.forEach(cb=>{
+    const idx=parseInt(cb.dataset.idx);
+    CLI[idx].tecnico=tec;
+    if(eT)CLI[idx].dist_km=haversine(CLI[idx].lat,CLI[idx].lon,eT.lat,eT.lon);
+    n++;
+  });
+  // reset bulk select options for new selTec context
+  const bs=document.getElementById('tec-bulk-tec');if(bs)bs.innerHTML='';
+  buildTecCli();buildTecList();
+  toast(n+' cliente'+(n!==1?'s':'')+' \u2192 '+tec);
+}
+function rmCliFromTec(idx){
+  CLI[idx].tecnico='';CLI[idx].dist_km=0;
+  buildTecCli();buildTecList();
+  toast(CLI[idx].nome+' removido');
+}
+function openAddTec(){
+  const ufOpts=Object.keys(UF_CTR).sort().map(u=>`<option value="${u}">${u}</option>`).join('');
+  document.getElementById('mt').innerHTML='&#43; Cadastrar Novo T\u00e9cnico';
+  document.getElementById('mbody').innerHTML=
+    `<div style="display:flex;flex-direction:column;gap:10px">
+      <div><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">Nome *</label><input id="nt-n" class="sinput" style="width:100%" placeholder="Nome completo"></div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">UF *</label><select id="nt-u" class="sinput" style="width:100%"><option value="">\u2014</option>${ufOpts}</select></div>
+        <div style="flex:2"><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">Cidade</label><input id="nt-c" class="sinput" style="width:100%" placeholder="Cidade"></div>
+      </div>
+      <div><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">Empresa</label><input id="nt-e" class="sinput" style="width:100%" placeholder="Empresa / equipe"></div>
+      <div><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">CEP</label><input id="nt-p" class="sinput" style="width:100%" placeholder="00000-000"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="btn ok" onclick="confirmAddTec()">&#10003; Cadastrar</button>
+        <button class="btn" onclick="document.getElementById('ov').classList.remove('show')">Cancelar</button>
+      </div>
+    </div>`;
+  document.getElementById('ov').classList.add('show');
+}
+function confirmAddTec(){
+  const nome=document.getElementById('nt-n').value.trim();
+  const uf=document.getElementById('nt-u').value;
+  if(!nome||!uf){toast('Preencha nome e UF!');return;}
+  if(EMP.find(e=>e.nome.toLowerCase()===nome.toLowerCase())){toast('T\u00e9cnico j\u00e1 existe!');return;}
+  const [lat,lon]=UF_CTR[uf]||[-15.8,-52];
+  EMP.push({id:'m_'+Date.now(),nome,uf,cidade:document.getElementById('nt-c').value.trim(),empresa:document.getElementById('nt-e').value.trim(),cep:document.getElementById('nt-p').value.trim(),lat,lon,equipe:''});
+  document.getElementById('ov').classList.remove('show');
+  buildTecList();buildRep();buildSide();
+  toast('T\u00e9cnico '+nome+' cadastrado!');
+  setTimeout(()=>selectTecAdmin(nome),80);
+}
+function openEditTec(nome){
+  const e=EMP.find(x=>x.nome===nome);if(!e)return;
+  const ufOpts=Object.keys(UF_CTR).sort().map(u=>`<option value="${u}"${u===e.uf?' selected':''}>${u}</option>`).join('');
+  document.getElementById('mt').innerHTML='&#9998; Editar T\u00e9cnico';
+  document.getElementById('mbody').innerHTML=
+    `<div style="display:flex;flex-direction:column;gap:10px">
+      <div><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">Nome</label><input id="et-n" class="sinput" style="width:100%" value="${e.nome.replace(/"/g,'&quot;')}"></div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">UF</label><select id="et-u" class="sinput" style="width:100%">${ufOpts}</select></div>
+        <div style="flex:2"><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">Cidade</label><input id="et-c" class="sinput" style="width:100%" value="${(e.cidade||'').replace(/"/g,'&quot;')}"></div>
+      </div>
+      <div><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">Empresa</label><input id="et-e" class="sinput" style="width:100%" value="${(e.empresa||'').replace(/"/g,'&quot;')}"></div>
+      <div><label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:3px">CEP</label><input id="et-p" class="sinput" style="width:100%" value="${(e.cep||'').replace(/"/g,'&quot;')}"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="btn ok" onclick="confirmEditTec('${nome.replace(/'/g,"\'")}')">&#10003; Salvar</button>
+        <button class="btn" onclick="document.getElementById('ov').classList.remove('show')">Cancelar</button>
+      </div>
+    </div>`;
+  document.getElementById('ov').classList.add('show');
+}
+function confirmEditTec(old){
+  const e=EMP.find(x=>x.nome===old);if(!e)return;
+  const novo=document.getElementById('et-n').value.trim();
+  const uf=document.getElementById('et-u').value;
+  if(!novo||!uf){toast('Preencha nome e UF!');return;}
+  if(novo!==old){CLI.forEach(c=>{if(c.tecnico===old)c.tecnico=novo;});if(selTec===old)selTec=novo;}
+  e.nome=novo;e.uf=uf;
+  e.cidade=document.getElementById('et-c').value.trim();
+  e.empresa=document.getElementById('et-e').value.trim();
+  e.cep=document.getElementById('et-p').value.trim();
+  if(UF_CTR[uf]&&(!e.lat||e.lat===0)){[e.lat,e.lon]=UF_CTR[uf];}
+  document.getElementById('ov').classList.remove('show');
+  buildTecList();buildRep();buildSide();
+  if(selTec)selectTecAdmin(selTec);
+  toast('T\u00e9cnico atualizado!');
+}
+function deleteTecConfirm(nome){
+  const cnt=CLI.filter(c=>c.tecnico===nome).length;
+  const otherOpts=EMP.filter(e=>e.nome!==nome).map(e=>`<option value="${e.nome.replace(/"/g,'&quot;')}">${e.nome} (${e.uf})</option>`).join('');
+  document.getElementById('mt').innerHTML='&#128465; Excluir T\u00e9cnico';
+  document.getElementById('mbody').innerHTML=
+    `<div style="background:#1a0a0a;border:1px solid #5a2020;border-radius:5px;padding:10px;margin-bottom:12px">
+      <div style="color:#f08080;font-weight:700;margin-bottom:4px">Excluir: ${nome}</div>
+      ${cnt>0?`<div style="font-size:11px;color:#c07070">Este t\u00e9cnico tem <b>${cnt} cliente${cnt!==1?'s':''}</b>. Escolha o que fazer com eles:</div>`:'<div style="font-size:11px;color:#c07070">Este t\u00e9cnico n\u00e3o tem clientes.</div>'}
+    </div>
+    ${cnt>0?`<div style="margin-bottom:12px">
+      <label style="font-size:11px;color:#7a9bc0;display:block;margin-bottom:5px;font-weight:600">Realocar clientes para:</label>
+      <select id="del-redir" style="background:#162035;border:1px solid #2a4060;color:#cde;border-radius:4px;padding:5px 8px;font-size:11px;width:100%">
+        <option value="">\u2014 Deixar sem t\u00e9cnico (livres) \u2014</option>${otherOpts}
+      </select>
+    </div>`:''}
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="confirmDelTec('${nome.replace(/'/g,"\'")}') " style="background:#3a1010;border-color:#8a2020;color:#ff8080">&#128465; Confirmar</button>
+      <button class="btn" onclick="document.getElementById('ov').classList.remove('show')">Cancelar</button>
+    </div>`;
+  document.getElementById('ov').classList.add('show');
+}
+function confirmDelTec(nome){
+  const redir=(document.getElementById('del-redir')||{}).value||'';
+  CLI.forEach(c=>{
+    if(c.tecnico!==nome)return;
+    c.tecnico=redir;
+    if(redir){const e=EMP.find(x=>x.nome===redir);if(e)c.dist_km=haversine(c.lat,c.lon,e.lat,e.lon);}
+    else c.dist_km=0;
+  });
+  const i=EMP.findIndex(e=>e.nome===nome);if(i>=0)EMP.splice(i,1);
+  if(selTec===nome){selTec=null;document.getElementById('tec-empty').style.display='flex';document.getElementById('tec-detail').style.display='none';}
+  document.getElementById('ov').classList.remove('show');
+  buildTecList();buildRep();buildSide();filterCli();
+  toast('Exclu\u00eddo: '+nome+(redir?' \u2192 clientes para '+redir:''));
+}
+function openAddCliToTec(){
+  if(!selTec){toast('Selecione um t\u00e9cnico!');return;}
+  const st=selTec;
+  document.getElementById('mt').innerHTML='&#43; Adicionar Cliente &#8594; '+st;
+  document.getElementById('mbody').innerHTML=
+    `<input class="sinput" id="aci-q" style="width:100%;margin-bottom:8px" placeholder="Buscar cliente por nome ou unidade..." oninput="renderACI()">
+    <div style="font-size:10px;color:#4a7090;margin-bottom:6px">Mostrando clientes de outros t\u00e9cnicos (ou sem t\u00e9cnico). Clique em Atribuir para transferir.</div>
+    <div id="aci-list" style="max-height:370px;overflow-y:auto;border:1px solid #1e3050;border-radius:4px"></div>`;
+  renderACI();
+  document.getElementById('ov').classList.add('show');
+}
+function renderACI(){
+  const q=(document.getElementById('aci-q')||{}).value||'';
+  const st=selTec;const eT=EMP.find(x=>x.nome===st);
+  const avail=CLI.filter(c=>c.tecnico!==st&&(!q||c.nome.toLowerCase().includes(q.toLowerCase())||(c.unidade||'').toLowerCase().includes(q.toLowerCase())));
+  const list=document.getElementById('aci-list');if(!list)return;
+  list.innerHTML=avail.slice(0,80).map(c=>{
+    const idx=CLI.indexOf(c);
+    const d=eT?haversine(c.lat,c.lon,eT.lat,eT.lon):0;
+    const dc=d<50?'#50d080':d<150?'#f0c040':'#f06060';
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-bottom:1px solid #0d1928">
+      <div style="min-width:0;flex:1">
+        <div style="font-size:11px;font-weight:700;color:#90b0d0">${c.nome}</div>
+        <div style="font-size:10px;color:#506070;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.unidade} &middot; ${c.tecnico?'<span style="color:#f0c040">'+c.tecnico+'</span>':'<span style="color:#3a7050">Livre</span>'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px">
+        <span style="font-size:10px;font-weight:700;color:${dc}">${d}km</span>
+        <button class="btn ok" onclick="assignCliToTec(${idx})" style="font-size:10px;padding:2px 8px">+ Atribuir</button>
+      </div>
+    </div>`;
+  }).join('')||'<div style="padding:20px;text-align:center;color:#3a5070">Nenhum resultado.</div>';
+}
+function assignCliToTec(idx){
+  const st=selTec;const eT=EMP.find(x=>x.nome===st);
+  CLI[idx].tecnico=st;
+  if(eT)CLI[idx].dist_km=haversine(CLI[idx].lat,CLI[idx].lon,eT.lat,eT.lon);
+  buildTecCli();buildTecList();renderACI();
+  toast(CLI[idx].nome+' \u2192 '+st);
+}
+function flyToTec(nome){
+  const e=EMP.find(x=>x.nome===nome);if(!e)return;
+  showP('map');
+  setTimeout(()=>{CX=e.lon;CY=e.lat;if(Z<7)Z=7;tileLayer.innerHTML='';renderMap();selectTech(nome);},100);
+}
+
+</script>
+</body>
+</html>
